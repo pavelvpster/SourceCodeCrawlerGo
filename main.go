@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"sync"
 )
@@ -80,45 +79,17 @@ func processFile(path string, waitCroup *sync.WaitGroup, consumer chan ParentChi
 
 	for scanner.Scan() {
 		line := scanner.Text()
-		ok, className, parentClassNames := getClass(line)
+		ok, className, parentClassNames := GetJavaClass(line)
 		if ok {
 			fmt.Printf("Class found. className: %s\n", className)
 			for _, parentClassName := range parentClassNames {
 				consumer <- ParentChild{parentClassName, className}
 			}
+			break
 		}
 	}
 
 	file.Close()
 
 	waitCroup.Done()
-}
-
-func getClass(line string) (bool, string, []string) {
-	re := regexp.MustCompile(`\s*(public)?\s*(final|abstract)?\s*(class|interface|enum)\s*(?P<className>\w*)\s*((?:extends|implements)\s*(?P<parentClasses>.*))?{`)
-	if !re.MatchString(line) {
-		return false, "", nil
-	}
-
-	var className, parentClassesString string
-	match := re.FindStringSubmatch(line)
-	for i, groupName := range re.SubexpNames() {
-		if i != 0 {
-			t := match[i]
-			switch groupName {
-			case "className":
-				className = t
-			case "parentClasses":
-				parentClassesString = t
-			}
-		}
-	}
-
-	parentClassNames := make([]string, 0)
-	if len(parentClassesString) > 0 {
-		for _, parentClassName := range strings.Split(parentClassesString, ",") {
-			parentClassNames = append(parentClassNames, strings.TrimSpace(parentClassName))
-		}
-	}
-	return len(className) > 0, className, parentClassNames
 }
